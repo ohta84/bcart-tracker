@@ -1,1 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bカート 追跡システム</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --border-strong: #c4c1b5;
+    --text: #1a1916;
+    --text-muted: #6b6860;
+    --text-faint: #a09d96;
+    --accent: #1a56db;
+    --accent-bg: #eff4ff;
+    --yamato: #c2410c;
+    --yamato-bg: #fff7ed;
+    --sagawa: #1d4ed8;
+    --sagawa-bg: #eff6ff;
+    --seino: #15803d;
+    --seino-bg: #f0fdf4;
+    --success: #15803d;
+    --success-bg: #f0fdf4;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    --font-mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6; min-height: 100vh; }
 
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .logo-mark { width: 22px; height: 22px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .logo-mark svg { color: white; }
+
+  .main { max-width: 1140px; margin: 0 auto; padding: 20px 20px; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+  .drop-zone-icon { font-size: 32px; margin-bottom: 10px; }
+  .drop-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .drop-zone p { font-size: 13px; color: var(--text-muted); }
+  .drop-zone input[type=file] { display: none; }
+  .drop-zone .btn-upload { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 8px 18px; background: var(--accent); color: white; border-radius: var(--radius); font-size: 13px; cursor: pointer; border: none; font-family: var(--font); }
+  .drop-zone .btn-upload:hover { background: #1649c0; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
+  .stat-num { font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Toolbar */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .date-group { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0 10px; height: 36px; }
+  .date-group label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .date-group input[type=date] { border: none; outline: none; font-size: 13px; font-family: var(--font); color: var(--text); background: transparent; cursor: pointer; }
+  .date-sep { color: var(--text-faint); font-size: 12px; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+  .chip { height: 30px; padding: 0 12px; border-radius: 15px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-family: var(--font); color: var(--text-muted); cursor: pointer; white-space: nowrap; }
+  .chip:hover { border-color: var(--border-strong); color: var(--text); }
+  .chip.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+  .search-wrap { position: relative; display: flex; align-items: center; }
+  .search-wrap svg { position: absolute; left: 9px; color: var(--text-faint); pointer-events: none; }
+  .search-wrap input { padding: 0 10px 0 30px; height: 36px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: var(--font); background: var(--surface); color: var(--text); width: 190px; outline: none; }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .ml-auto { margin-left: auto; }
+
+  /* Table */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--bg); white-space: nowrap; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafaf8; }
+  .mono { font-family: var(--font-mono); font-size: 12px; }
+  .muted { color: var(--text-muted); }
+
+  /* Badges */
+  .badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .badge-yamato { background: var(--yamato-bg); color: var(--yamato); }
+  .badge-sagawa { background: var(--sagawa-bg); color: var(--sagawa); }
+  .badge-seino  { background: var(--seino-bg);  color: var(--seino); }
+  .badge-other  { background: var(--bg); color: var(--text-faint); border: 1px solid var(--border); }
+  .badge-done   { background: var(--success-bg); color: var(--success); }
+  .badge-ship   { background: var(--accent-bg); color: var(--accent); }
+  .badge-wait   { background: var(--warn-bg); color: var(--warn); }
+  .badge-prep   { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+  /* Track links */
+  .track-links { display: flex; flex-wrap: wrap; gap: 4px; }
+  .track-link { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--accent); text-decoration: none; padding: 3px 8px; border-radius: 6px; border: 1px solid #c7d9fd; background: var(--accent-bg); white-space: nowrap; }
+  .track-link:hover { background: #dce8ff; }
+  .no-track { font-size: 12px; color: var(--text-faint); }
+
+  /* Time badge */
+  .time-badge { display: inline-block; font-size: 11px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+
+  /* Empty */
+  .empty { padding: 48px; text-align: center; color: var(--text-muted); }
+  .empty-icon { font-size: 28px; margin-bottom: 8px; }
+  .empty small { display: block; font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+
+  /* Count badge */
+  .count-label { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    </div>
+    Bカート 追跡管理
+  </div>
+  <span id="file-name" style="font-size:12px;color:var(--text-muted)"></span>
+</header>
+
+<div class="main">
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="drop-zone-icon">📂</div>
+    <h3>BカートのCSVをここにドロップ</h3>
+    <p>受注管理からエクスポートしたCSVファイルを読み込みます</p>
+    <label class="btn-upload" onclick.stop>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      ファイルを選択
+    </label>
+    <input type="file" id="file-input" accept=".csv">
+  </div>
+
+  <!-- Stats (hidden until data loaded) -->
+  <div id="stats-wrap" style="display:none">
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-label">総件数</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--yamato)" id="s-yamato">0</div><div class="stat-label">ヤマト運輸</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--sagawa)" id="s-sagawa">0</div><div class="stat-label">佐川急便</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--seino)" id="s-seino">0</div><div class="stat-label">西濃運輸</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--warn)" id="s-untracked">0</div><div class="stat-label">未追跡</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="date-group">
+        <label>納品日</label>
+        <input type="date" id="date-from" onchange="render()">
+        <span class="date-sep">〜</span>
+        <input type="date" id="date-to" onchange="render()">
+      </div>
+      <div class="chips">
+        <button class="chip active" onclick="setFilter('all',this)">すべて</button>
+        <button class="chip" onclick="setFilter('yamato',this)">ヤマト</button>
+        <button class="chip" onclick="setFilter('sagawa',this)">佐川</button>
+        <button class="chip" onclick="setFilter('untracked',this)">未追跡</button>
+      </div>
+      <div class="search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="search" placeholder="注文番号・会社名・担当者" oninput="render()">
+      </div>
+      <span class="count-label ml-auto" id="count-label"></span>
+    </div>
+
+    <div class="table-card">
+      <div class="table-scroll">
+        <div id="table-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let allOrders = [];
+let currentFilter = 'all';
+
+// ── CSV読み込み ──────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) loadCSV(file);
+});
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.csv')) loadCSV(file);
+});
+
+function loadCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    // Shift-JIS → UTF-8 デコード
+    const bytes = new Uint8Array(e.target.result);
+    let text;
+    try {
+      text = new TextDecoder('shift-jis').decode(bytes);
+    } catch {
+      text = new TextDecoder('utf-8').decode(bytes);
+    }
+    parseCSV(text, file.name);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseCSV(text, filename) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return;
+
+  const headers = parseCSVLine(lines[0]);
+
+  // 列インデックスを名前で探す
+  const idx = name => headers.findIndex(h => h.trim() === name);
+  const COL = {
+    orderNo:      idx('受注番号'),
+    company:      idx('会社名'),
+    person:       idx('担当者'),
+    deliveryPerson: idx('配送先 担当者'),
+    prefecture:   idx('配送先 都道府県'),
+    deliveryDate: idx('納品日'),
+    hopedDate:    idx('配送希望日'),
+    hopedTime:    idx('配送希望時間'),
+    tracking:     idx('送り状番号'),
+    shippedDate:  idx('発送日'),
+    status:       idx('対応状況'),
+    shippingStatus: idx('発送状況'),
+    deliveryGroup: idx('配送グループ'),
+    productName:  idx('商品名'),
+  };
+
+  const seen = new Set();
+  const orders = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseCSVLine(lines[i]);
+    if (row.length < 10) continue;
+
+    const orderNo = row[COL.orderNo] || '';
+    if (!orderNo || seen.has(orderNo)) continue;
+    seen.add(orderNo);
+
+    const tracking = row[COL.tracking] || '';
+    const carrier = detectCarrier(tracking);
+
+    orders.push({
+      orderNo,
+      company:       row[COL.company]       || '',
+      person:        row[COL.person]        || row[COL.deliveryPerson] || '',
+      prefecture:    row[COL.prefecture]    || '',
+      deliveryDate:  row[COL.deliveryDate]  || '',
+      hopedDate:     row[COL.hopedDate]     || '',
+      hopedTime:     row[COL.hopedTime]     || '',
+      tracking,
+      shippedDate:   row[COL.shippedDate]   || '',
+      status:        row[COL.status]        || '',
+      shippingStatus: row[COL.shippingStatus] || '',
+      carrier,
+    });
+  }
+
+  allOrders = orders;
+  document.getElementById('file-name').textContent = filename;
+  document.getElementById('stats-wrap').style.display = '';
+  dz.style.display = 'none';
+
+  // 納品日フィルターを今日にセット
+  const dates = orders.map(o => o.deliveryDate).filter(Boolean).sort();
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('date-from').value = today;
+  document.getElementById('date-to').value   = today;
+
+  updateStats();
+  render();
+}
+
+// シンプルなCSVパーサ（ダブルクォート対応）
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) {
+      if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cur += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { result.push(cur); cur = ''; }
+      else cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+// ── 配送業者自動判別 ──────────────────────────────────────
+function detectCarrier(tracking) {
+  if (!tracking) return '';
+  // 複数ある場合は最初の番号で判定
+  const first = tracking.split('|')[0].replace(/-/g, '');
+  if (/^(3[89]0\d{9}|1[234]\d{10})/.test(first)) return 'yamato';  // 38x,39x,12x,13x,14x
+  if (/^(49\d{10}|76\d{10})/.test(first)) return 'sagawa';          // 49x, 76x
+  if (/^0[12]\d/.test(first)) return 'seino';                       // 011-, 012-
+  if (first.length >= 10) return 'other';
+  return '';
+}
+
+function trackingUrls(carrier, trackingStr) {
+  if (!trackingStr) return [];
+  const numbers = trackingStr.split('|').map(s => s.trim()).filter(Boolean);
+  return numbers.map(num => {
+    const clean = num.replace(/-/g, '');
+    if (carrier === 'yamato') return { label: num, url: `https://toi.kuronekoyamato.co.jp/cgi-bin/tnp/solasrch/index.cgi?number=${clean}` };
+    if (carrier === 'sagawa') return { label: num, url: `https://k2k.sagawa-exp.co.jp/p/sagawa/web/okurijosearch.do?okurijoNo=${clean}` };
+    if (carrier === 'seino')  return { label: num, url: `https://track.seino.co.jp/kamotsu/denpyoNoShokai.do?DENPYO_NO=${clean}` };
+    return { label: num, url: null };
+  });
+}
+
+// ── Stats ──────────────────────────────────────────────
+function updateStats() {
+  const o = allOrders;
+  document.getElementById('s-total').textContent     = o.length;
+  document.getElementById('s-yamato').textContent    = o.filter(x => x.carrier === 'yamato').length;
+  document.getElementById('s-sagawa').textContent    = o.filter(x => x.carrier === 'sagawa').length;
+  document.getElementById('s-seino').textContent     = o.filter(x => x.carrier === 'seino').length;
+  document.getElementById('s-untracked').textContent = o.filter(x => !x.tracking).length;
+}
+
+// ── Filter & Render ──────────────────────────────────────
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function getFiltered() {
+  const q     = (document.getElementById('search').value || '').toLowerCase();
+  const dfrom = document.getElementById('date-from').value;
+  const dto   = document.getElementById('date-to').value;
+
+  return allOrders.filter(o => {
+    if (currentFilter === 'yamato'    && o.carrier !== 'yamato') return false;
+    if (currentFilter === 'sagawa'    && o.carrier !== 'sagawa') return false;
+    if (currentFilter === 'untracked' && o.tracking)             return false;
+    const d = o.deliveryDate;
+    if (dfrom && d && d < dfrom) return false;
+    if (dto   && d && d > dto)   return false;
+    if (q) {
+      const hay = (o.orderNo + o.company + o.person + o.prefecture).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function carrierBadge(c) {
+  if (c === 'yamato') return `<span class="badge badge-yamato">ヤマト運輸</span>`;
+  if (c === 'sagawa') return `<span class="badge badge-sagawa">佐川急便</span>`;
+  if (c === 'seino')  return `<span class="badge badge-seino">西濃運輸</span>`;
+  if (c === 'other')  return `<span class="badge badge-other">その他</span>`;
+  return `<span class="badge badge-other">未設定</span>`;
+}
+
+function statusBadge(s) {
+  if (!s) return '';
+  if (s === '完了')     return `<span class="badge badge-done">${s}</span>`;
+  if (s === '発送指示') return `<span class="badge badge-ship">${s}</span>`;
+  if (s.includes('準備')) return `<span class="badge badge-wait">${s}</span>`;
+  return `<span class="badge badge-prep">${s}</span>`;
+}
+
+function render() {
+  const data = getFiltered();
+  document.getElementById('count-label').textContent = `${data.length}件`;
+  const wrap = document.getElementById('table-wrap');
+
+  if (!data.length) {
+    const dfrom = document.getElementById('date-from').value;
+    const dto   = document.getElementById('date-to').value;
+    wrap.innerHTML = `<div class="empty">
+      <div class="empty-icon">📦</div>
+      該当する注文がありません
+      <small>${dfrom || dto ? `${dfrom || '—'} 〜 ${dto || '—'} の納品日に該当なし` : '条件を変えて試してください'}</small>
+    </div>`;
+    return;
+  }
+
+  const rows = data.map(o => {
+    const urls = trackingUrls(o.carrier, o.tracking);
+    const trackCell = urls.length
+      ? `<div class="track-links">${urls.map(({label, url}) => url
+          ? `<a class="track-link" href="${url}" target="_blank" rel="noopener">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+               ${label}
+             </a>`
+          : `<span class="no-track">${label}</span>`
+        ).join('')}</div>`
+      : `<span class="no-track">—</span>`;
+
+    const timeStr = o.hopedTime
+      ? `<span class="time-badge">${o.hopedTime}</span>` : '';
+
+    return `<tr>
+      <td class="mono muted">${o.orderNo}</td>
+      <td>
+        <div style="font-weight:500">${o.company || o.person}</div>
+        ${o.company && o.person ? `<div style="font-size:11px;color:var(--text-muted)">${o.person}</div>` : ''}
+      </td>
+      <td class="muted" style="font-size:12px">${o.prefecture}</td>
+      <td>
+        <div style="font-size:13px;font-weight:500">${o.deliveryDate || '—'}</div>
+        ${timeStr}
+      </td>
+      <td>${carrierBadge(o.carrier)}</td>
+      <td>${trackCell}</td>
+      <td>${statusBadge(o.shippingStatus || o.status)}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>受注番号</th>
+      <th>会社名 / 担当者</th>
+      <th>都道府県</th>
+      <th>納品日 / 時間帯</th>
+      <th>配送業者</th>
+      <th>送り状番号</th>
+      <th>発送状況</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+</script>
+</body>
+</html>
