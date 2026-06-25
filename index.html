@@ -282,11 +282,13 @@ function parseCSV(text, filename) {
   document.getElementById('stats-wrap').style.display = '';
   dz.style.display = 'none';
 
-  // 納品日フィルターを今日にセット
-  const dates = orders.map(o => o.deliveryDate).filter(Boolean).sort();
-  const today = new Date().toISOString().slice(0,10);
-  document.getElementById('date-from').value = today;
-  document.getElementById('date-to').value   = today;
+  // デフォルト：今日〜翌日
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const fmt = d => d.toISOString().slice(0,10);
+  document.getElementById('date-from').value = fmt(today);
+  document.getElementById('date-to').value   = fmt(tomorrow);
 
   updateStats();
   render();
@@ -363,7 +365,7 @@ function getFiltered() {
     if (currentFilter === 'yamato'    && o.carrier !== 'yamato') return false;
     if (currentFilter === 'sagawa'    && o.carrier !== 'sagawa') return false;
     if (currentFilter === 'untracked' && o.tracking)             return false;
-    const d = o.deliveryDate;
+    const d = o.deliveryDate || o.hopedDate;  // 納品日なければ配送希望日で判定
     if (dfrom && d && d < dfrom) return false;
     if (dto   && d && d > dto)   return false;
     if (q) {
@@ -429,7 +431,7 @@ function render() {
       </td>
       <td class="muted" style="font-size:12px">${o.prefecture}</td>
       <td>
-        <div style="font-size:13px;font-weight:500">${o.deliveryDate || '—'}</div>
+        <div style="font-size:13px;font-weight:500">${o.deliveryDate || (o.hopedDate ? `<span style="color:var(--text-muted)">${o.hopedDate}(希望)</span>` : '—')}</div>
         ${timeStr}
       </td>
       <td>${carrierBadge(o.carrier)}</td>
