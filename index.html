@@ -229,7 +229,11 @@ function parseCSV(text, filename) {
   const headers = parseCSVLine(lines[0]);
 
   // 列インデックスを名前で探す
-  const idx = name => headers.findIndex(h => h.trim() === name);
+  const idx = name => {
+    const exact = headers.findIndex(h => h.trim() === name);
+    if (exact >= 0) return exact;
+    return headers.findIndex(h => h.trim().includes(name) || name.includes(h.trim()));
+  };
   const COL = {
     orderNo:      idx('受注番号'),
     company:      idx('会社名'),
