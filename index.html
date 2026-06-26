@@ -239,7 +239,7 @@ function parseCSV(text, filename) {
     deliveryDate: idx('納品日'),
     hopedDate:    idx('配送希望日'),
     hopedTime:    idx('配送希望時間'),
-    tracking:     idx('送り状番号'),
+    tracking:     idx('送り状番号') >= 0 ? idx('送り状番号') : 58,
     shippedDate:  idx('発送日'),
     status:       idx('対応状況'),
     shippingStatus: idx('発送状況'),
