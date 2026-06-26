@@ -317,18 +317,28 @@ function parseCSVLine(line) {
 // ── 配送業者自動判別 ──────────────────────────────────────
 function detectCarrier(tracking) {
   if (!tracking) return '';
-  // 複数ある場合は最初の番号で判定
-  const first = tracking.split('|')[0].replace(/-/g, '');
-  if (/^(3[89]0\d{9}|1[234]\d{10})/.test(first)) return 'yamato';  // 38x,39x,12x,13x,14x
-  if (/^(49\d{10}|76\d{10})/.test(first)) return 'sagawa';          // 49x, 76x
-  if (/^0[12]\d/.test(first)) return 'seino';                       // 011-, 012-
+  let raw = tracking.split('|')[0].trim();
+  if (/^\d+\.?\d*[Ee][+\-]?\d+$/.test(raw)) {
+    const num = Number(raw);
+    if (!isNaN(num) && isFinite(num)) raw = String(Math.round(num));
+  }
+  const first = raw.replace(/-/g, '');
+  if (/^(3[89]\d{10}|1[234]\d{10})/.test(first)) return 'yamato';
+  if (/^(4\d{11}|76\d{10})/.test(first)) return 'sagawa';
+  if (/^0[12]\d/.test(first)) return 'seino';
   if (first.length >= 10) return 'other';
   return '';
 }
-
 function trackingUrls(carrier, trackingStr) {
   if (!trackingStr) return [];
-  const numbers = trackingStr.split('|').map(s => s.trim()).filter(Boolean);
+  const numbers = trackingStr.split('|').map(s => {
+    let n = s.trim();
+    if (/^\d+\.?\d*[Ee][+\-]?\d+$/.test(n)) {
+      const num = Number(n);
+      if (!isNaN(num) && isFinite(num)) n = String(Math.round(num));
+    }
+    return n;
+  }).filter(Boolean);
   return numbers.map(num => {
     const clean = num.replace(/-/g, '');
     if (carrier === 'yamato') return { label: num, url: `https://toi.kuronekoyamato.co.jp/cgi-bin/tnp/solasrch/index.cgi?number=${clean}` };
